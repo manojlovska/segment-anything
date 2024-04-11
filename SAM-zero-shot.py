@@ -22,6 +22,18 @@ def parse_args():
     parser.add_argument(
         "--img_path", type=str, default="./images/dogs.jpg", help="path to image file"
     )
+    parser.add_argument(
+    "--model-type",
+    type=str,
+    required=True,
+    help="The type of model to load, in ['default', 'vit_h', 'vit_l', 'vit_b']",
+    )
+    parser.add_argument(
+    "--checkpoint",
+    type=str,
+    required=True,
+    help="The path to the SAM checkpoint to use for mask generation.",
+    )
     parser.add_argument("--imgsz", type=int, default=1024, help="image size")
     parser.add_argument(
         "--iou",
@@ -84,6 +96,12 @@ def parse_args():
             "Save masks as COCO RLEs in a single json instead of as a folder of PNGs. "
             "Requires pycocotools."
         ),
+    )
+    parser.add_argument(
+    "--pred_iou_thresh",
+    type=float,
+    default=None,
+    help="Exclude masks with a predicted score from the model that is lower than this threshold.",
     )
 
     return parser.parse_args()
@@ -163,42 +181,108 @@ def show_anns(anns):
         color_mask = np.concatenate([np.random.random(3), [0.35]])
         img[m] = color_mask
     ax.imshow(img)
+
+
+def get_kwargs(args):
+    kwargs = {
+        "points_per_side": args.points_per_side,
+        "points_per_batch": args.points_per_batch,
+        "pred_iou_thresh": args.pred_iou_thresh,
+        "stability_score_thresh": args.stability_score_thresh,
+        "stability_score_offset": args.stability_score_offset,
+        "box_nms_thresh": args.box_nms_thresh,
+        "crop_n_layers": args.crop_n_layers,
+        "crop_nms_thresh": args.crop_nms_thresh,
+        "crop_overlap_ratio": args.crop_overlap_ratio,
+        "crop_n_points_downscale_factor": args.crop_n_points_downscale_factor,
+        "min_mask_region_area": args.min_mask_region_area,
+    }
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    return kwargs
     
 
-def main(args):
-    # load model
-    sam = sam_model_registry["vit_b"](checkpoint="/work/anastasija/Materials-Science/segment-anything/models/sam_vit_b_01ec64.pth")
+# def main(args):
+#     # load model
+#     sam = sam_model_registry["vit_b"](checkpoint="/work/anastasija/Materials-Science/segment-anything/models/sam_vit_b_01ec64.pth")
+#     _ = sam.to(device=args.device)
+#     mask_generator = SamAutomaticMaskGenerator(sam)
+#     output_mode = "coco_rle" if args.convert_to_rle else "binary_mask"
+
+#     images = find_images(args.img_path)
+
+#     for image in tqdm(images):
+#         input = cv2.imread(image)
+#         if image is None:
+#             print(f"Could not load '{image}' as an image, skipping...")
+#             continue
+#         input = cv2.cvtColor(input, cv2.COLOR_BGR2RGB)
+
+#         masks = mask_generator.generate(input)
+
+#         base = os.path.basename(image)
+#         base = os.path.splitext(base)[0]
+#         save_base = os.path.join(args.output, image.split("/")[-2], base)
+
+#         os.makedirs(save_base, exist_ok=True)
+#         write_masks_to_folder(masks, save_base)
+
+#         for item in masks:                                                                                                                                                                                                                                                                 
+#             item['segmentation'] = item['segmentation'].tolist()
+
+#         save_file = save_base + ".json"
+#         with open(save_file, "w") as f:
+#             json.dump(masks, f)
+    
+        
+#         torch.cuda.empty_cache()
+#     print("Done!")
+
+def main(args: argparse.Namespace) -> None:
+    print("Loading model...")
+    sam = sam_model_registry[args.model_type](checkpoint=args.checkpoint)
     _ = sam.to(device=args.device)
-    mask_generator = SamAutomaticMaskGenerator(sam)
     output_mode = "coco_rle" if args.convert_to_rle else "binary_mask"
+    # kwargs = get_kwargs(args)
+    generator = SamAutomaticMaskGenerator(sam, output_mode=output_mode, pred_iou_thresh=args.pred_iou_thresh)
+
+    # if not os.path.isdir(args.input):
+    #     targets = [args.input]
+    # else:
+    #     targets = [
+    #         f for f in os.listdir(args.input) if not os.path.isdir(os.path.join(args.input, f))
+    #     ]
+    #     targets = [os.path.join(args.input, f) for f in targets]
 
     images = find_images(args.img_path)
 
-    for image in tqdm(images):
-        input = cv2.imread(image)
+    os.makedirs(args.output, exist_ok=True)
+
+    for im in tqdm(images):
+        print(f"Processing '{im}'...")
+        image = cv2.imread(im)
         if image is None:
-            print(f"Could not load '{image}' as an image, skipping...")
+            print(f"Could not load '{im}' as an image, skipping...")
             continue
-        input = cv2.cvtColor(input, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        masks = mask_generator.generate(input)
+        masks = generator.generate(image)
 
-        base = os.path.basename(image)
+        import pdb
+        pdb.set_trace()
+
+        base = os.path.basename(im)
         base = os.path.splitext(base)[0]
-        save_base = os.path.join(args.output, image.split("/")[-2], base)
+        save_base = os.path.join(args.output, im.split("/")[-2], base)
+        save_dir = os.path.join(args.output, im.split("/")[-2])
 
-        os.makedirs(save_base, exist_ok=True)
-        write_masks_to_folder(masks, save_base)
-
-        for item in masks:                                                                                                                                                                                                                                                                 
-            item['segmentation'] = item['segmentation'].tolist()
-
-        save_file = save_base + ".json"
-        with open(save_file, "w") as f:
-            json.dump(masks, f)
-    
-        
-        torch.cuda.empty_cache()
+        if output_mode == "binary_mask":
+            os.makedirs(save_base, exist_ok=False)
+            write_masks_to_folder(masks, save_base)
+        else:
+            os.makedirs(save_dir, exist_ok=True)
+            save_file = save_base + ".json"
+            with open(save_file, "w") as f:
+                json.dump(masks, f)
     print("Done!")
 
 

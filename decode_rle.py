@@ -3,7 +3,7 @@ import numpy as np
 from pycocotools import mask
 import matplotlib.pyplot as plt
 
-json_file = "/work/anastasija/Materials-Science/segment-anything/output_new/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.json"
+json_file = "output_new_data/5-5-11/dl1528 4008x2672 0,571621 12k.json"
 
 with open(json_file, 'r') as f:
     annotations = json.load(f)

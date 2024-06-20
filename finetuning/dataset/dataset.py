@@ -59,6 +59,35 @@ def process_mask(image):
     padded_mask = pad_mask(resized_mask)
     return padded_mask
 
+def resize_bbox(bbox, img_size):
+    """
+    Resize bounding box coordinates based on a scale factor.
+    
+    Parameters:
+        bbox (tuple): Bounding box coordinates in the format (x_min, y_min, x_max, y_max).
+        scale_factor (float): Scale factor for resizing.
+        
+    Returns:
+        tuple: Resized bounding box coordinates.
+    """
+
+    longest_edge = 256
+    # get new size
+    w, h = img_size
+    scale = longest_edge * 1.0 / max(h, w)
+
+    x_min, y_min = bbox[:2]
+    x_max = x_min + bbox[2]
+    y_max = y_min +  bbox[3]
+
+    # Calculate new coordinates based on the scale factor
+    new_x_min = int(x_min * scale)
+    new_y_min = int(y_min * scale)
+    new_x_max = int(x_max * scale)
+    new_y_max = int(y_max * scale)
+
+    return new_x_min, new_y_min, new_x_max, new_y_max
+
 
 # Define dataset with masks
 class MagPartDataset(torch.utils.data.Dataset):
@@ -72,22 +101,10 @@ class MagPartDataset(torch.utils.data.Dataset):
         self.img_ids = [self.dataset_info[key]['id'] for key in self.dataset_info.keys() if self.dataset_info[key]['split'] == self.split]
         self.img_map = ids2img_names(self.img_ids, self.dataset_info)
 
-        self.transformed_data, self.ground_truth_masks, self.bbox_coords = self.get_img_mask_bbox(self.img_ids)
-
-        # self.images = sorted([file for file in glob.glob(os.path.join(self.images_dir, '**', '*.tif'), recursive=True) 
-        #                if not (file.endswith('-a.tif') or file.endswith('-1.tif'))])
-        # self.gt_masks = self.get_masks_ann(self.masks_dir)
-
+        self.transformed_data = self.get_img_mask_bbox(self.img_ids)
 
     def __len__(self):
         return len(self.img_ids)
-    
-    # def get_masks_ann(self, masks_path):
-    #     "For given masks path, returns a list of lists with the paths of the annotations"
-
-    #     masks_annotations = [list(g) for _, g in itertools.groupby(sorted(glob.glob(os.path.join(masks_path, '**', '*.json'), recursive=True)), os.path.dirname)]
-
-    #     return masks_annotations
     
     def get_dataset_info(self, images_dir):
         file_name = os.path.join(images_dir, "dataset_info.json")
@@ -98,11 +115,10 @@ class MagPartDataset(torch.utils.data.Dataset):
         return dataset_info
     
     def get_img_mask_bbox(self, ids):
-        bbox_coords = defaultdict(list)
-        ground_truth_masks = defaultdict(list)
-        transformed_data = defaultdict(dict)
 
+        transformed_data_all = {}
         for img_id in ids:
+            transformed_data = {}
             img_name = self.img_map[img_id]
             img_name = os.path.dirname(img_name) + '/' + os.path.splitext(os.path.basename(img_name))[0]
             print(img_name)
@@ -113,40 +129,44 @@ class MagPartDataset(torch.utils.data.Dataset):
 
             if self.transform:
                 input_image = self.transform(image)
+            else:
+                input_image = torch.tensor(image)
 
-            original_image_size = image.shape[-2:] # image.size[::-1]
-            input_size = tuple(input_image.shape[-3:-1])
+            original_image_size = image.shape[-3:-1]
+            input_size = tuple(input_image.shape[-2:])
 
-            transformed_data[img_id]['image'] = input_image[0]
-            transformed_data[img_id]['input_size'] = input_size
-            transformed_data[img_id]['original_image_size'] = original_image_size
+            transformed_data['image'] = input_image[0]
 
             # Load the masks
-            # file_name = os.path.join(masks_path, img_name.split('.')[0] + ".json")
-
             with open(masks_path, "r") as json_file:
                 rle_encoded_masks = json.load(json_file)
             
+            bbox_coords = []
+            ground_truth_masks = []
+
             for rle_encoded_mask in rle_encoded_masks:
                 area = get_area(rle_encoded_mask)
                 ground_truth_mask = get_binary_mask(rle_encoded_mask)
                 ground_truth_mask = process_mask(ground_truth_mask)
                 bbox = get_bbox(rle_encoded_mask)
 
-                ground_truth_masks[img_id].append(ground_truth_mask)
-                bbox_coords[img_id].append(bbox)
+                # Transform the bounding boxes as well
+                ground_truth_bbox = resize_bbox(bbox, original_image_size)
 
-        return transformed_data, ground_truth_masks, bbox_coords
+                ground_truth_masks.append(torch.tensor(ground_truth_mask))
+                bbox_coords.append(torch.tensor(ground_truth_bbox))
+            
+            transformed_data['ground_truth_masks'] = ground_truth_masks
+            transformed_data['bboxes'] = bbox_coords
+            transformed_data['input_size'] = torch.tensor(input_size)
+            transformed_data['original_image_size'] = torch.tensor(original_image_size)
+        
+            transformed_data_all[img_id] = transformed_data
+
+        return transformed_data_all
                 
 
     def __getitem__(self, idx):
         img_id = self.img_ids[idx]
-        return self.transformed_data[img_id], self.ground_truth_masks[img_id], self.bbox_coords[img_id]
+        return self.transformed_data[img_id]
 
-
-# # Define transforms
-# transform = transforms.Compose([
-#     transforms.Resize((224, 224)), # Resize to the size a model expects
-#     transforms.ToTensor(),
-#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) # Normalization values for pre-trained PyTorch models
-# ])

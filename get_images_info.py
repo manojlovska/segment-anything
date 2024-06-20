@@ -57,10 +57,10 @@ def get_all_ratios(root_dir):
     return ratios_dict
 
 
-root_dir = '/work/anastasija/Materials-Science/Datasets/Porazdelitev celcev original'
+root_dir = '/home/matejm/anastasija/Materials-Science/segment-anything/data/Porazdelitev celcev original'
 images_paths = sorted([file for file in glob.glob(os.path.join(root_dir, '**', '*.tif'), recursive=True) 
                        if not (file.endswith('-a.tif') or file.endswith('-1.tif'))])
-save_path = '/work/anastasija/Materials-Science/segment-anything/data'
+save_path = '/home/matejm/anastasija/Materials-Science/segment-anything/data/'
 
 ratios_dict = get_all_ratios(root_dir)
 

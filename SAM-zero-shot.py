@@ -120,6 +120,19 @@ def find_images(images_path):
 
     return tif_files
 
+def find_jpg_images(images_path):
+    # List to store the paths of the PNG images
+    jpg_files = []
+
+    # Walk through the directory
+    for dirpath, dirnames, filenames in os.walk(images_path):
+        # Filter out PNG files that do not end with '-a.png'
+        for filename in fnmatch.filter(filenames, '*.jpg'):
+            if not (filename.endswith('-a.jpg') or filename.endswith('-1.jpg')):
+                jpg_files.append(os.path.join(dirpath, filename))
+
+    return jpg_files
+
 def im_clear_borders(thresh):
     kernel2 = np.ones((3,3), np.uint8)
     marker = thresh.copy()
@@ -253,9 +266,12 @@ def main(args: argparse.Namespace) -> None:
     #     ]
     #     targets = [os.path.join(args.input, f) for f in targets]
 
-    images = find_images(args.img_path)
+    images = find_jpg_images(args.img_path)
 
     os.makedirs(args.output, exist_ok=True)
+
+    # import pdb
+    # pdb.set_trace()
 
     for im in tqdm(images):
         print(f"Processing '{im}'...")
@@ -267,13 +283,13 @@ def main(args: argparse.Namespace) -> None:
 
         masks = generator.generate(image)
 
-        import pdb
-        pdb.set_trace()
-
         base = os.path.basename(im)
         base = os.path.splitext(base)[0]
         save_base = os.path.join(args.output, im.split("/")[-2], base)
         save_dir = os.path.join(args.output, im.split("/")[-2])
+
+        # import pdb
+        # pdb.set_trace()
 
         if output_mode == "binary_mask":
             os.makedirs(save_base, exist_ok=False)

@@ -55,7 +55,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--img_extension",
+        "--img-extension",
         type=str,
         default="tif",
         help="image extensions(default is tif)"
@@ -145,6 +145,7 @@ def parse_args():
             "in pixels are removed by postprocessing."
         ),
     )
+    return parser.parse_args()
 
 def write_masks_to_folder(masks: List[Dict[str, Any]], path: str) -> None:
     header = "id,area,bbox_x0,bbox_y0,bbox_w,bbox_h,point_input_x,point_input_y,predicted_iou,stability_score,crop_box_x0,crop_box_y0,crop_box_w,crop_box_h"  # noqa

@@ -4,25 +4,34 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from pycocotools import mask
-from helper_functions import refine_masks
+from helper_functions import refine_masks, calculate_diam, read_excel
 import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--image_path", type=str, required=True, help="path to the image"
+        "--image-path", type=str, required=True, help="path to the image"
     )
     parser.add_argument(
-        "--save", type=bool, default=True, help="set to True for saving the plot"
+        "--save-plot", action="store_true", help="set to True for saving the plot"
     )
     parser.add_argument(
-        "--save_path", type=str, default="./results/masks_plot.png", help="path to save the plot"
+        "--save-path", type=str, default="./results/masks_plot.png", help="path to save the plot"
+    )
+    parser.add_argument(
+        "--ratio", type=float, help="ratio for converting px to nm"
+    )
+    parser.add_argument(
+        "--tmin", type=int, default=10, help="min diameter value(in nm) for the particle to be included in histogram analysis (default is 10)"
+    )
+    parser.add_argument(
+        "--tmax", type=int, default=150, help="max diameter value(in nm) for the particle to be included in histogram analysis (default is 150)"
     )
 
     return parser.parse_args()
 
-def show_output(result_dict, axes=None, refine=False):
+def show_output(result_dict, image_name, ratio, t_min, t_max, axes=None, refine=False):
     if axes:
         ax = axes
     else:
@@ -34,7 +43,13 @@ def show_output(result_dict, axes=None, refine=False):
     # Plot for each segment area
     for val in sorted_result:
         if refine:
-            if val['area'] > 250000.0 or val['area'] < 1000.0:
+            area = val['area']
+            diam_px = calculate_diam(area)
+            if image_name.startswith('BSHF') or image_name.startswith('TEM'):
+                    diam_px = diam_px * 3
+            diam_nm = diam_px * ratio
+
+            if not t_min <= diam_nm <= t_max:
                 continue
             else:
                 mask_binary = mask.decode(val['segmentation'])
@@ -50,8 +65,16 @@ def show_output(result_dict, axes=None, refine=False):
 
 def main(args):
     image_path = args.image_path
+    image_name = image_path.split("/")[-1]
 
-    mask_path = os.path.join("./output", image_path.split("/")[-2], image_path.split("/")[-1].split(".")[0] + ".json")
+    mask_path = os.path.join("./output", image_path.split("/")[-2], image_name.split(".")[0] + ".json")
+
+    # Thresholds
+    t_min = args.tmin
+    t_max = args.tmax
+
+    # Excel file path
+    ratio = args.ratio
 
     _, axes = plt.subplots(1, 3, figsize=(20, 8))
 
@@ -68,14 +91,27 @@ def main(args):
     axes[1].set_title('Original Masks', fontsize=20)
     axes[2].set_title('Refined Masks', fontsize=20)
 
-    show_output(annotations, axes[1], refine=False)
-    show_output(annotations, axes[2], refine=True)
+    # Plot non filtered masks
+    show_output(result_dict=annotations, 
+                image_name=image_name, 
+                ratio=ratio, 
+                t_min=t_min, t_max=t_max, 
+                axes=axes[1], 
+                refine=False)
+    
+    # Plot filtered masks
+    show_output(result_dict=annotations, 
+                image_name=image_name, 
+                ratio=ratio, 
+                t_min=t_min, t_max=t_max, 
+                axes=axes[2], 
+                refine=True)
 
     for ax in axes:
         ax.tick_params(axis='both', which='major', labelsize=15)
 
     plt.tight_layout()
-    if args.save:
+    if args.save_plot:
         plt.savefig(args.save_path)
     plt.show()
 

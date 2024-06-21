@@ -33,7 +33,6 @@ def parse_args():
     return parser.parse_args()
 
 def main(args):
-    print(f"filter edge: {args.filter_edge}")
     # Check if paths exist
     if not os.path.exists(args.masks_path):
         raise FileNotFoundError(f"Masks path '{args.masks_path}' does not exist.")
@@ -64,7 +63,7 @@ def main(args):
         fig, ax = plt.subplots(figsize=(10, 8))
         axes = [ax]
     else:
-        fig, axes = plt.subplots(num_files // 5, 5, figsize=(20, 8))
+        fig, axes = plt.subplots(num_files // 5, 5, figsize=(40, 20))
         axes = axes.flatten()
 
     for i, k in enumerate(tqdm(list(excel_files.keys()), desc="Processing experiments")):

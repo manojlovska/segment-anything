@@ -75,7 +75,10 @@ for a particular experimental analysis.
 
 * Notes: 
   * Run 
-  ```shell  python compare_histograms_main.py ``` for additional information on how to use this command.
+  ```shell  
+  python compare_histograms_main.py --help 
+  ``` 
+  for additional information on how to use this command.
   * If you wish you can choose different size constraints --t_min and --t_max, default are 10 nm and 150 nm
   * Add --filter-edge to filter out the edge particles (Particularly slow on non-GPU machine!)
   * If you chose different path to save the output masks of the SAM model, you have to specify that path here by using --masks-path

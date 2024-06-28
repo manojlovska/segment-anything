@@ -1,0 +1,8 @@
+opencv-python
+pycocotools
+matplotlib
+onnxruntime
+onnx
+tqdm
+numpy
+pandas

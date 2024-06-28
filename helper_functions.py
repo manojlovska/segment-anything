@@ -217,3 +217,13 @@ def chi2_distance(A, B):
         if a + b != 0:
             chi += ((a - b) ** 2) / (a + b)
     return 0.5 * chi
+
+def check_image_extension(file_path):
+    # Get the file extension
+    _, file_extension = os.path.splitext(file_path)
+    
+    # Check if it ends with '.tif' or '.jpg'
+    if file_extension.lower() in ['.tif', '.jpg']:
+        return True
+    else:
+        return False

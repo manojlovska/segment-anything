@@ -1,10 +1,10 @@
 import os
 import argparse
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from helper_functions import *
+import pandas as pd
+from helper_functions import * 
 
 
 def parse_args():
@@ -31,6 +31,9 @@ def parse_args():
     parser.add_argument(
         "--filter-edge", action="store_true", help="set for filtering edge particles"
     )
+    parser.add_argument(
+        "--ratio", type=float, required=True, help="ratio for converting area from px to nm"
+    )
     return parser.parse_args()
 
 def main(args):
@@ -42,24 +45,25 @@ def main(args):
     if args.save_hist and not os.path.exists(args.save_path):
         os.makedirs(args.save_path, exist_ok=True)
 
+    # Initialize json_files
+    json_files = {}
+
     # Metadata for generated masks
-    json_files = find_files(args.masks_path, '.json')
+    if check_image_extension(args.images_path):
+        dir_name = os.path.basename(os.path.dirname(args.masks_path))
+        json_files[dir_name] = [args.masks_path]
+    else:
+        json_files = find_files(args.masks_path, '.json')
+    
     if not json_files:
         raise FileNotFoundError("No JSON files found in the masks path.")
-
-    # Excel files with ground truths
-    excel_files = find_files(args.images_path, '.xlsx')
-    if not excel_files:
-        raise FileNotFoundError("No Excel files found in the images path.")
 
     # Thresholds
     t_min = args.t_min
     t_max = args.t_max
 
-    chi2_distances = []
-    
     # Determine the number of plots
-    num_files = len(excel_files)
+    num_files = len(json_files)
     if num_files == 1:
         fig, ax = plt.subplots(figsize=(10, 8))
         axes = [ax]
@@ -67,18 +71,8 @@ def main(args):
         fig, axes = plt.subplots(num_files // 5, 5, figsize=(40, 20))
         axes = axes.flatten()
 
-    for i, k in enumerate(tqdm(list(excel_files.keys()), desc="Processing experiments")):
+    for i, k in enumerate(tqdm(list(json_files.keys()), desc="Processing experiments")):
         try:
-            # Read the ground truth excel
-            excel_file = read_excel(excel_files[k][0])
-            if excel_file.empty:
-                raise ValueError(f"Excel file {excel_files[k][0]} is empty or corrupted.")
-
-            # Calculate the ratio for converting area from px to nm
-            ratio = np.mean(excel_file.iloc[:, 2]) / np.mean(excel_file.iloc[:, 1])
-            if np.isnan(ratio) or ratio <= 0:
-                raise ValueError(f"Invalid ratio calculated for experiment {k}.")
-
             # Images inside the specific experiment analysis
             images_paths = json_files[k]
             images = [os.path.splitext(os.path.basename(path))[0] for path in images_paths]
@@ -105,19 +99,13 @@ def main(args):
                 if image_name.startswith('BSHF') or image_name.startswith('TEM'):
                     diams_px = [diam_px * 3 for diam_px in diams_px]
 
-                diams_nm = [ratio * diam_px for diam_px in diams_px]
+                diams_nm = [args.ratio * diam_px for diam_px in diams_px]
                 diams_nm = [diam_nm for diam_nm in diams_nm if t_min <= diam_nm <= t_max]
                 diams_nm_predicted.extend(diams_nm)
 
-            # Generate histograms and calculate chi-squared distance
+            # Generate histograms
             histogram_predicted = generate_diam_nm_histogram(diams_nm_predicted, bins=[0.01, 10, 20.01, 30, 40.01, 50, 60.01, 70, 80.01, 90, 100.01, 110, 120.01, 130, 140.01, 150])
             weights_pred = histogram_predicted[0] / np.sum(histogram_predicted[0])
-
-            histogram_gt = generate_diam_nm_histogram(excel_file.iloc[:, 2].dropna(), bins=[0.01, 10, 20.01, 30, 40.01, 50, 60.01, 70, 80.01, 90, 100.01, 110, 120.01, 130, 140.01, 150])
-            weights_gt = histogram_gt[0] / np.sum(histogram_gt[0])
-
-            chi2_dist = chi2_distance(weights_gt, weights_pred)
-            chi2_distances.append(chi2_dist)
 
             # Save the predicted diameters to csv file
             predicted_diameters_df = pd.DataFrame(diams_nm_predicted, columns=["Diameter (nm)"])
@@ -125,10 +113,9 @@ def main(args):
 
             # Plot histogram
             ax = axes[i]
-            ax.hist(histogram_gt[1][:-1], bins=histogram_gt[1], weights=weights_gt, alpha=0.5, align='mid', color='blue')
             ax.hist(histogram_predicted[1][:-1], bins=histogram_predicted[1], weights=weights_pred, alpha=0.5, align='mid', color='red')
-            ax.set_title(f'{k} (Chi2 distance: {chi2_dist:.4f})')
-            ax.legend([f'{k} - GT', f'{k} - MASKS'], loc='upper right')
+            ax.set_title(f'{k}')
+            ax.legend([f'{k} - MASKS'], loc='upper right')
             ax.set_xlabel('Diameter (nm)')
             ax.set_ylabel('Relative number of particles')
             ax.grid(True)
@@ -141,9 +128,6 @@ def main(args):
     if args.save_hist:
         plt.savefig(os.path.join(args.save_path, "histograms.png"))
     plt.show()
-
-    mean_chi2_dist = np.mean(chi2_distances)
-    print(f'Mean Chi2 Distance: {mean_chi2_dist:.4f}')
 
 if __name__ == "__main__":
     args = parse_args()

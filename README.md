@@ -64,7 +64,21 @@ python SAM-zero-shot.py --help
 ```
 for additional information on how to use the command.
 
-### Step 8: Compare generated and ground truth histograms
+### Step 8: Generate histograms out of predicted diameters
+If you don't have ground truth diameters distributions, you can plot only the predicted diameter distributions. For example, to generate diameters distribution out of one image, run the following command:
+```shell
+python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.tif' --masks-path "./output/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.json" --save-hist --ratio 0.2410
+```
+
+Or if you want to plot the diameter distribution of an experimental analysis consisted of multiple images:
+```shell
+python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325' --masks-path "./output/BSHF-DBSA-210325" --save-hist --ratio 0.2410
+```
+Generated histograms and predicted diameters in nm are saved in "./results" directory, you can change this by specifying different --save-path.
+
+Here you must specify the masks path and the ratio for converting the diameters in nm.
+
+### Step 9: Compare generated and ground truth histograms
 Run
 ```shell
 python compare_histograms_main.py --images-path '/path/to/Porazdelitev delcev original' --save-hist
@@ -82,24 +96,10 @@ for a particular experimental analysis.
   ``` 
   for additional information on how to use this command.
   * If you wish you can choose different size constraints --t_min and --t_max, default are 10 nm and 150 nm
-  * Add --filter-edge to filter out the edge particles (Particularly slow on non-GPU machine!)
+  * Add --filter-edge to filter out the edge particles (Extremely slow on non-GPU machine!)
   * If you chose different path to save the output masks of the SAM model, you have to specify that path here by using --masks-path
 
 Generated histograms and predicted diameters in nm are saved in "./results" directory, you can change this by specifying different --save-path.
-
-### Step 9: Generate histograms out of predicted diameters
-If you don't have ground truth diameters distributions, you can plot only the predicted diameter distributions. For example, to generate diameters distribution out of one image, run the following command:
-```shell
-python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.tif' --masks-path "./output/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.json" --save-hist --ratio 0.2410
-```
-
-Or if you want to plot the diameter distribution of an experimental analysis consisted of multiple images:
-```shell
-python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325' --masks-path "./output/BSHF-DBSA-210325" --save-hist --ratio 0.2410
-```
-Generated histograms and predicted diameters in nm are saved in "./results" directory, you can change this by specifying different --save-path.
-
-Here you must specify the masks path and the ratio for converting the diameters in nm.
 
 ### Step 10: Visualize the masks
 If you want to check if the obtained masks for an image are well generated, run the command:

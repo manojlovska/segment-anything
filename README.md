@@ -44,17 +44,19 @@ pip install -r requirements.txt
 mkdir weights
 cd weights
 wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth
+cd ..
 ```
 
 ### Step 7: Obtain images' masks
 Run the SAM-zero-shot.py script to obtain the masks. An example of the following command:
 ```shell
-python SAM-zero-shot.py --img_path "./data/Porazdelitev delcev original" --model-type "vit_b" --device "cuda" (or "cpu") --convert-to-rle --image-extension "tif"
+python SAM-zero-shot.py --img_path "/path/to/Porazdelitev delcev original" --model-type "vit_b" --device "cuda" --convert-to-rle --img-extension "tif" --checkpoint weights/sam_vit_b_01ec64.pth 
 ```
 * Notes: 
-  * type the path to your dataset, or an image file you want segmented
+  * change --img_path "/path/to/Porazdelitev delcev original" to the path to your dataset, or an image file you want segmented
   * --convert-to-rle flag must be present to save the masks in coco RLE format
-  * the masks will be saved in "./outputs" by default, add --output "path/to/desired/output/directory" if you want to change this
+  * the masks will be saved in "./output" by default, add --output "path/to/desired/output/directory" if you want to change this
+  * change --device 'cuda' to --device 'cpu' if you do not want to run the program on a GPU
 
 Run 
 ```shell
@@ -88,12 +90,12 @@ Generated histograms and predicted diameters in nm are saved in "./results" dire
 ### Step 9: Generate histograms out of predicted diameters
 If you don't have ground truth diameters distributions, you can plot only the predicted diameter distributions. For example, to generate diameters distribution out of one image, run the following command:
 ```shell
-python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.tif' --masks-path "/home/anastasija/Documents/IJS/E8/Magnetic-Particles/code/segment-anything/output/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.json" --save-hist --ratio 0.2410
+python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.tif' --masks-path "./output/BSHF-DBSA-210325/BSHF-DBSA-210325_0001.json" --save-hist --ratio 0.2410
 ```
 
 Or if you want to plot the diameter distribution of an experimental analysis consisted of multiple images:
 ```shell
-python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325' --masks-path "/home/anastasija/Documents/IJS/E8/Magnetic-Particles/code/segment-anything/output/BSHF-DBSA-210325" --save-hist --ratio 0.2410
+python generate_histograms_main.py --images-path '/path/to/Porazdelitev delcev original/BSHF-DBSA-210325' --masks-path "./output/BSHF-DBSA-210325" --save-hist --ratio 0.2410
 ```
 Generated histograms and predicted diameters in nm are saved in "./results" directory, you can change this by specifying different --save-path.
 

@@ -4,7 +4,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from pycocotools import mask
-from helper_functions import refine_masks, calculate_diam, read_excel
+from helper_functions import refine_masks, calculate_diam, filter_long_particles_in_mask
 import argparse
 
 def parse_args():
@@ -31,28 +31,29 @@ def parse_args():
 
     return parser.parse_args()
 
-def show_output(result_dict, image_name, ratio, t_min, t_max, axes=None, refine=False):
+def show_output(result_dict, image, ratio, t_min, t_max, axes=None, refine=False):
     if axes:
         ax = axes
     else:
         ax = plt.gca()
         ax.set_autoscale_on(False)
-    
     sorted_result = sorted(result_dict, key=(lambda x: x['area']), reverse=True)
+
     
     # Plot for each segment area
     for val in sorted_result:
         if refine:
             area = val['area']
             diam_px = calculate_diam(area)
-            if image_name.startswith('BSHF') or image_name.startswith('TEM'):
-                    diam_px = diam_px * 3
+            width_ratio = 4008 / image.shape[1]
+            diam_px = diam_px * width_ratio
             diam_nm = diam_px * ratio
-
             if not t_min <= diam_nm <= t_max:
                 continue
             else:
                 mask_binary = mask.decode(val['segmentation'])
+                if not filter_long_particles_in_mask(mask_binary):
+                    continue
                 mask_binary = refine_masks(mask_binary)
         else:
             mask_binary = mask.decode(val['segmentation'])
@@ -93,7 +94,7 @@ def main(args):
 
     # Plot non filtered masks
     show_output(result_dict=annotations, 
-                image_name=image_name, 
+                image=img,
                 ratio=ratio, 
                 t_min=t_min, t_max=t_max, 
                 axes=axes[1], 
@@ -101,7 +102,7 @@ def main(args):
     
     # Plot filtered masks
     show_output(result_dict=annotations, 
-                image_name=image_name, 
+                image=img,
                 ratio=ratio, 
                 t_min=t_min, t_max=t_max, 
                 axes=axes[2], 
@@ -114,6 +115,7 @@ def main(args):
     if args.save_plot:
         plt.savefig(args.save_path)
     plt.show()
+    #plt.savefig('img.png')
 
 if __name__ == "__main__":
     args = parse_args()

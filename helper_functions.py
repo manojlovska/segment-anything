@@ -33,6 +33,39 @@ def im_clear_borders(thresh):
     out = cv2.bitwise_and(thresh, mask)
     return out
 
+
+def filter_long_particles_in_list(masks):
+    areas = masks['areas']
+    bmasks = masks['binary_masks']
+    filtered_masks = []
+    filtered_areas = []
+    for a, m in zip(areas, bmasks):
+        y_indices, x_indices = np.where(m > 0)
+        x_min, x_max = np.min(x_indices), np.max(x_indices)
+        y_min, y_max = np.min(y_indices), np.max(y_indices)
+        if (x_max - x_min) * 1.6 > (y_max - y_min):
+            if (x_max - x_min) < 1.6 * (y_max - y_min):
+                bounding_box = m[y_min:y_max, x_min:x_max]
+                fullness = bounding_box.sum()/((x_max - x_min) * (y_max - y_min))
+                if fullness > 0.6:
+                    filtered_areas.append(a)
+                    filtered_masks.append(m)
+    return {'areas':filtered_areas, 'binary_masks':filtered_masks}
+
+
+def filter_long_particles_in_mask(m):
+    y_indices, x_indices = np.where(m > 0)
+    x_min, x_max = np.min(x_indices), np.max(x_indices)
+    y_min, y_max = np.min(y_indices), np.max(y_indices)
+    if (x_max - x_min) * 1.6 > (y_max - y_min):
+        if (x_max - x_min) < 1.6 * (y_max - y_min):
+            bounding_box = m[y_min:y_max, x_min:x_max]
+            fullness = bounding_box.sum()/((x_max - x_min) * (y_max - y_min))
+            if fullness > 0.6:
+                return True
+    return False
+
+
 def refine_masks(mask):
     """
     Refine masks by removing elements attached to the image border.

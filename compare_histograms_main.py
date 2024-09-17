@@ -100,6 +100,7 @@ def main(args):
             for annotation, image_name in zip(tqdm(images_paths, desc="Processing images"), images):
                 image_width = cv2.imread(name2path[image]).shape[1]
                 decoded_annotation = decode_annotation(annotation)
+                decoded_annotation = filter_long_particles_in_list(decoded_annotation)
                 if args.filter_edge:
                     masks_refined = [refine_masks(binary_mask) for binary_mask in decoded_annotation["binary_masks"]]
                     indices = [mask_refined.any() for mask_refined in masks_refined]

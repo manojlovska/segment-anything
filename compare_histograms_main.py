@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from helper_functions import *
+import cv2
 
 
 def parse_args():
@@ -41,6 +42,8 @@ def main(args):
         raise FileNotFoundError(f"Images path '{args.images_path}' does not exist.")
     if args.save_hist and not os.path.exists(args.save_path):
         os.makedirs(args.save_path, exist_ok=True)
+    all_im_paths = os.listdir(args.images_path)
+    all_im_paths = [os.path.join(args.images_path, x) for x in all_im_paths]
 
     # Metadata for generated masks
     json_files = find_files(args.masks_path, '.json')
@@ -83,11 +86,19 @@ def main(args):
             images_paths = json_files[k]
             images = [os.path.splitext(os.path.basename(path))[0] for path in images_paths]
 
+            name2path = {}
+            for image in images:
+                for p in all_im_paths:
+                    if image in p:
+                        name2path[image] = p
+                        break
+
             print(f'Experiment analysis: {k} \nImages: {images}')
 
             # Find the detected particles
             diams_nm_predicted = []
             for annotation, image_name in zip(tqdm(images_paths, desc="Processing images"), images):
+                image_width = cv2.imread(name2path[image]).shape[1]
                 decoded_annotation = decode_annotation(annotation)
                 if args.filter_edge:
                     masks_refined = [refine_masks(binary_mask) for binary_mask in decoded_annotation["binary_masks"]]
@@ -102,8 +113,8 @@ def main(args):
                 areas = [area for idx, area in zip(indices, areas) if idx]
 
                 diams_px = [calculate_diam(area) for area in areas]
-                if image_name.startswith('BSHF') or image_name.startswith('TEM'):
-                    diams_px = [diam_px * 3 for diam_px in diams_px]
+                width_ratio = 4008 / image_width
+                diams_px = [diam_px * width_ratio for diam_px in diams_px]
 
                 diams_nm = [ratio * diam_px for diam_px in diams_px]
                 diams_nm = [diam_nm for diam_nm in diams_nm if t_min <= diam_nm <= t_max]
@@ -141,6 +152,7 @@ def main(args):
     if args.save_hist:
         plt.savefig(os.path.join(args.save_path, "histograms.png"))
     plt.show()
+    #plt.savefig('hist_compare.png')
 
     mean_chi2_dist = np.mean(chi2_distances)
     print(f'Mean Chi2 Distance: {mean_chi2_dist:.4f}')

@@ -46,8 +46,11 @@ def main(args):
         raise FileNotFoundError(f"Images path '{args.images_path}' does not exist.")
     if args.save_hist and not os.path.exists(args.save_path):
         os.makedirs(args.save_path, exist_ok=True)
-    all_im_paths = os.listdir(args.images_path)
-    all_im_paths = [os.path.join(args.images_path, x) for x in all_im_paths]
+    if os.path.isdir(args.images_path):
+        all_im_paths = os.listdir(args.images_path)
+        all_im_paths = [os.path.join(args.images_path, x) for x in all_im_paths]
+    else:
+        all_im_paths = [args.images_path]
 
     # Initialize json_files
     json_files = {}
